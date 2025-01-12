@@ -1,13 +1,9 @@
 import os.path
+
+from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 import yop_cloud_sdk
-
-
-TELEGRAM_BOT_TOKEN = '<YOUR-TOKEN-HERE>'
-
-YOP_STORAGE_URL = 'http://0.0.0.0:8080'
-YOP_STORAGE_TOKEN = 'my_lovely_friends'
 
 
 class Bot:
@@ -27,11 +23,9 @@ class Bot:
         self.bot_application.add_handler(start_handler)
         self.bot_application.add_handler(download_handler)
         self.bot_application.add_handler(upload_handler)
-        
 
     def run_polling(self):
         self.bot_application.run_polling()
-
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         usage_text = \
@@ -39,10 +33,12 @@ class Bot:
             "send file with <path> message to upload a file."
         await context.bot.send_message(chat_id=update.effective_chat.id, text=usage_text)
 
-
     async def download(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if context.args is None or len(context.args) != 1:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text='You need to specify exactly one file path.')
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text='You need to specify exactly one file path.'
+            )
             return
         
         path = context.args[0]
@@ -51,20 +47,20 @@ class Bot:
         try:
             self.yop_storage.download(path, '.', file_name)
         except FileNotFoundError:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text='File was not found on server. Sorry bro.')
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text='File was not found on server. Sorry bro.'
+            )
             return
 
         await context.bot.send_document(chat_id=update.effective_chat.id, document=open(file_name, 'rb'))
         print(f'sent to @{update.effective_user.username}')
-
 
     async def upload(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         wrong_caption_text = 'You need to specify exactly one path for saving the file.'
 
         if update.message.caption is None:
             path = update.message.document.file_name
-            # await context.bot.send_message(chat_id=update.effective_chat.id, text=wrong_caption_text)
-            # return
         else:
             caption_split = update.message.caption.split(' ')
             if len(caption_split) != 1:
@@ -81,18 +77,25 @@ class Bot:
         try:
             self.yop_storage.upload(update.message.document.file_name, '.', path)
         except RuntimeError:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text='Uploading failed. I don\'t know why. Try rebooting computer...')
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text='Uploading failed. I don\'t know why. Try rebooting computer...'
+            )
             return
 
         await context.bot.send_message(chat_id=update.effective_chat.id, text='Uploaded.')
 
 
-if __name__ == '__main__':
+def main():
+    load_dotenv()
     Bot(
-        telegram_bot_token=TELEGRAM_BOT_TOKEN,
-
-        yop_storage_url=YOP_STORAGE_URL,
-        yop_storage_token=YOP_STORAGE_TOKEN,
+        telegram_bot_token=os.environ['TELEGRAM_BOT_TOKEN'],
+        yop_storage_url=os.environ['YOP_STORAGE_URL'],
+        yop_storage_token=os.environ['YOP_STORAGE_TOKEN'],
     ).run_polling()
+
+
+if __name__ == '__main__':
+    main()
 
 
